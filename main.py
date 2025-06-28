@@ -20,18 +20,6 @@ line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 openai.api_key = OPENAI_API_KEY
 
-# --- GASにUser IDを送信する関数 ---
-def save_user_id_to_gas(user_id):
-    payload = {
-        "user_id": user_id
-    }
-    headers = {"Content-Type": "application/json"}
-    try:
-        res = requests.post(GAS_BASE_URL, json=payload, headers=headers)
-        print("✅ GASにUser ID送信完了")
-    except Exception as e:
-        print("❌ GAS送信エラー:", e)
-
 # --- Webhook受信エンドポイント ---
 @app.route("/callback", methods=["POST"])
 def callback():
@@ -53,11 +41,9 @@ def handle_message(event):
     user_id = event.source.user_id
     question = "今日の問い"  # 将来的に動的に変更OK
 
-    # ユーザーIDをGASに保存
-    save_user_id_to_gas(user_id)
-
     # OpenAIにフィードバックを依頼
     prompt = f"ユーザーの回答:「{user_message}」に対して、共感しつつ1～2文で優しく丁寧なフィードバックをしてください。"
+    feedback = "" # フィードバックを初期化
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -80,14 +66,17 @@ def handle_message(event):
         TextSendMessage(text=reply_text)
     )
 
-    # GASに記録
+    # GASにすべての情報を記録
     try:
-        requests.post(GAS_BASE_URL, json={
+        payload = {
             "user_id": user_id,
             "question": question,
             "answer": user_message,
             "feedback": feedback
-        })
+        }
+        headers = {"Content-Type": "application/json"}
+        res = requests.post(GAS_BASE_URL, json=payload, headers=headers)
+        print(f"✅ GASに全データ送信完了: {res.text}") # GASからの応答も確認
     except Exception as e:
         print("⚠️ GAS連携エラー:", e)
 
