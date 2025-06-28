@@ -45,5 +45,5 @@ def reply_to_line(reply_token, message):
     print("LINE reply status:", res.status_code)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
