@@ -14,6 +14,7 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+print("🔑 読み込んだAPIキー:", os.getenv("OPENAI_API_KEY"))
 GAS_BASE_URL = os.getenv("GAS_BASE_URL")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
