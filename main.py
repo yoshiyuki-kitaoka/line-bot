@@ -68,5 +68,12 @@ def reply_to_line(reply_token, message):
 
 # 起動ポイント
 if __name__ == "__main__":
+    # ✅ 環境変数チェック用ログ出力
+    print("=== 環境変数チェック ===")
+    print("OPENAI_API_KEY:", "あり" if openai.api_key else "なし")
+    print("LINE_CHANNEL_ACCESS_TOKEN:", "あり" if LINE_CHANNEL_ACCESS_TOKEN else "なし")
+    print("PORT:", os.environ.get("PORT", "未設定"))
+    print("=========================")
+
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
