@@ -60,7 +60,7 @@ def handle_message(event):
     prompt = f"ユーザーの回答:「{user_message}」に対して、共感しつつ1～2文で優しく丁寧なフィードバックをしてください。"
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "あなたはユーザーの成長を応援するフィードバックコーチです。"},
                 {"role": "user", "content": prompt}
