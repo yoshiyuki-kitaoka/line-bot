@@ -1,33 +1,31 @@
 from flask import Flask, request, abort
 import os
 import openai
+import requests
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 print("🔥 起動したでぇ（これはmain.pyや）")
 
-# Flaskアプリ作成
 app = Flask(__name__)
 
-# 環境変数からトークン類を読み込み
+# 環境変数
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GAS_BASE_URL = os.getenv("GAS_BASE_URL")
 
-# 各種初期化
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
 openai.api_key = OPENAI_API_KEY
 
+# Webhook受信エンドポイント
 @app.route("/callback", methods=["POST"])
 def callback():
     signature = request.headers.get("X-Line-Signature")
     body = request.get_data(as_text=True)
-
-    print("=== 環境変数チェック ===")
-    print("OPENAI_API_KEY:", "あり" if OPENAI_API_KEY else "なし")
-    print("LINE_CHANNEL_ACCESS_TOKEN:", "あり" if LINE_CHANNEL_ACCESS_TOKEN else "なし")
 
     try:
         handler.handle(body, signature)
@@ -37,32 +35,50 @@ def callback():
 
     return "OK", 200
 
-# メッセージイベントに応答
+# LINEメッセージを受け取る
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    user_text = event.message.text
+    user_message = event.message.text
+    user_id = event.source.user_id
+    question = "今日の問い"  # 将来的には動的にしてもOK
 
+    # OpenAIでフィードバック生成
+    prompt = f"ユーザーの回答:「{user_message}」に対して、共感しつつ1～2文で優しく丁寧なフィードバックをしてください。"
     try:
-        # OpenAIと連携
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             messages=[
-                {"role": "system", "content": "あなたは親しみやすく、自然な日本語で対話するAIアシスタントです。"},
-                {"role": "user", "content": user_text}
-            ]
+                {"role": "system", "content": "あなたはユーザーの成長を応援するフィードバックコーチです。"},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=100,
+            temperature=0.7
         )
-
-        reply_text = response["choices"][0]["message"]["content"].strip()
+        feedback = response.choices[0].message["content"].strip()
     except Exception as e:
-        print("❌ OpenAIエラー:", e)
-        reply_text = "ごめんなさい、うまく応答できませんでした。"
+        feedback = "（OpenAIの応答に失敗しました）"
+        print("⚠️ OpenAIエラー:", e)
 
+    # LINEに返信
+    reply_text = f"📩 フィードバック：\n{feedback}"
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
 
-# Flask起動（Render対応）
+    # GASに記録
+    try:
+        requests.post(GAS_BASE_URL, json={
+            "user_id": user_id,
+            "question": question,
+            "answer": user_message,
+            "feedback": feedback
+        })
+    except Exception as e:
+        print("⚠️ GAS連携エラー:", e)
+
+# アプリ起動（Render用）
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
