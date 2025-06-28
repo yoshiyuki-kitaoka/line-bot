@@ -18,10 +18,21 @@ GAS_BASE_URL = os.getenv("GAS_BASE_URL")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
 openai.api_key = OPENAI_API_KEY
 
-# Webhook受信エンドポイント
+# --- GASにUser IDを送信する関数 ---
+def save_user_id_to_gas(user_id):
+    payload = {
+        "user_id": user_id
+    }
+    headers = {"Content-Type": "application/json"}
+    try:
+        res = requests.post(GAS_BASE_URL, json=payload, headers=headers)
+        print("✅ GASにUser ID送信完了")
+    except Exception as e:
+        print("❌ GAS送信エラー:", e)
+
+# --- Webhook受信エンドポイント ---
 @app.route("/callback", methods=["POST"])
 def callback():
     signature = request.headers.get("X-Line-Signature")
@@ -35,14 +46,17 @@ def callback():
 
     return "OK", 200
 
-# LINEメッセージを受け取る
+# --- メッセージ受信処理 ---
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
     user_id = event.source.user_id
-    question = "今日の問い"  # 将来的には動的にしてもOK
+    question = "今日の問い"  # 将来的に動的に変更OK
 
-    # OpenAIでフィードバック生成
+    # ユーザーIDをGASに保存
+    save_user_id_to_gas(user_id)
+
+    # OpenAIにフィードバックを依頼
     prompt = f"ユーザーの回答:「{user_message}」に対して、共感しつつ1～2文で優しく丁寧なフィードバックをしてください。"
     try:
         response = openai.ChatCompletion.create(
@@ -77,8 +91,7 @@ def handle_message(event):
     except Exception as e:
         print("⚠️ GAS連携エラー:", e)
 
-# アプリ起動（Render用）
+# --- Flask起動（Render用）---
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
