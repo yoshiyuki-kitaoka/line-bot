@@ -1,10 +1,10 @@
 from flask import Flask, request, abort
 import os
-import openai
 import requests
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from openai import OpenAI
 
 print("🔥 起動したでぇ（これはmain.pyや）")
 
@@ -14,12 +14,16 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-print("🔑 読み込んだAPIキー:", os.getenv("OPENAI_API_KEY"))
 GAS_BASE_URL = os.getenv("GAS_BASE_URL")
 
+print("🔑 読み込んだAPIキー:", OPENAI_API_KEY)
+
+# LINE Bot初期化
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-openai.api_key = OPENAI_API_KEY
+
+# OpenAIクライアント初期化
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Webhook受信エンドポイント ---
 @app.route("/callback", methods=["POST"])
@@ -40,13 +44,14 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     user_id = event.source.user_id
-    question = "今日の問い"  # 将来的に動的に変更OK
+    question = "今日の問い"
 
     # OpenAIにフィードバックを依頼
     prompt = f"ユーザーの回答:「{user_message}」に対して、共感しつつ1～2文で優しく丁寧なフィードバックをしてください。"
-    feedback = "" # フィードバックを初期化
+    feedback = ""
+
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "あなたはユーザーの成長を応援するフィードバックコーチです。"},
@@ -55,7 +60,7 @@ def handle_message(event):
             max_tokens=100,
             temperature=0.7
         )
-        feedback = response.choices[0].message["content"].strip()
+        feedback = response.choices[0].message.content.strip()
     except Exception as e:
         feedback = "（OpenAIの応答に失敗しました）"
         print("⚠️ OpenAIエラー:", e)
@@ -67,7 +72,7 @@ def handle_message(event):
         TextSendMessage(text=reply_text)
     )
 
-    # GASにすべての情報を記録
+    # GASに記録
     try:
         payload = {
             "user_id": user_id,
@@ -77,7 +82,7 @@ def handle_message(event):
         }
         headers = {"Content-Type": "application/json"}
         res = requests.post(GAS_BASE_URL, json=payload, headers=headers)
-        print(f"✅ GASに全データ送信完了: {res.text}") # GASからの応答も確認
+        print(f"✅ GASに全データ送信完了: {res.text}")
     except Exception as e:
         print("⚠️ GAS連携エラー:", e)
 
