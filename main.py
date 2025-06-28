@@ -65,6 +65,9 @@ def reply_to_line(reply_token, message):
     }
     res = requests.post(url, headers=headers, json=data)
     print("LINE reply status:", res.status_code)
+    
+# 起動チェック用メッセージ
+print("🔥 起動したでぇ（これはmain.pyや）")
 
 # 起動ポイント
 if __name__ == "__main__":
